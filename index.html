@@ -17,19 +17,230 @@
     </div>
 
     <script src="libs/d3.v7.min.js"></script>
-    <script src="scripts/d3chart.js"></script>
+    <script src="scripts/data.js"></script>
 
     <script>
-        let chart;
-        d3.json('data/data.json')
-            .then(data => {
-                chart = new Chart()
-                    .svgHeight(window.innerHeight - 30)
-                    .svgWidth(window.innerWidth - 30)
-                    .container('#graph-container')
-                    .data(data)
-                    .render()
-            })
+        // Initialize the application
+        async function init() {
+            const data = await fetchData();
+            console.log('Fetched data:', data);
+
+            // Set up dimensions
+            const margin = { top: 40, right: 60, bottom: 60, left: 60 };
+            const width = 1000 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+
+            // Create SVG
+            const svg = d3.select("#graph-container")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Group data by intervention
+            const groupedData = d3.group(data, d => d.intervention);
+
+            // Set up scales with padding
+            const xPadding = 0.5; // Add 0.5 units of padding on each side
+            const x = d3.scaleLinear()
+                .domain([
+                    d3.min(data, d => d.session) - xPadding,
+                    d3.max(data, d => d.session) + xPadding
+                ])
+                .range([0, width]);
+
+            const yLeft = d3.scaleLinear()
+                .domain([0, Math.ceil(d3.max(data, d => d.verbalPrompting)) + 3])
+                .range([height, 0]);
+
+            const yRight = d3.scaleLinear()
+                .domain([0, Math.ceil(d3.max(data, d => d.wordResponse)) + 3])
+                .range([height, 0]);
+
+            // Create axes with integer ticks
+            const xAxis = d3.axisBottom(x).ticks(data.length);
+            const yAxisLeft = d3.axisLeft(yLeft)
+                .tickFormat(d3.format('d'));  // Format as integer
+            const yAxisRight = d3.axisRight(yRight)
+                .tickFormat(d3.format('d'));  // Format as integer
+
+            // Add axes to SVG
+            svg.append("g")
+                .attr("class", "x-axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(xAxis)
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 40)
+                .attr("fill", "black")
+                .style("text-anchor", "middle")
+                .text("Session")
+                .style("font-size", "12px")
+
+
+            // Add left y-axis with label and line indicator
+            const leftAxis = svg.append("g")
+                .attr("class", "y-axis-left")
+                .call(yAxisLeft);
+
+            // Add line indicator and label for left axis
+            leftAxis.append("line")
+                .attr("x1", -45)
+                .attr("x2", -45)
+                .attr("y1", 260)
+                .attr("y2", 320)
+                .attr("stroke", "#666")
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5,5");
+
+            leftAxis.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -40)
+                .attr("x", -height / 2)
+                .attr("fill", "black")
+                .style("text-anchor", "middle")
+                .text("Verbal Prompting")
+                .style("font-size", "12px")
+
+            // Add right y-axis with label and line indicator
+            const rightAxis = svg.append("g")
+                .attr("class", "y-axis-right")
+                .attr("transform", `translate(${width},0)`)
+                .call(yAxisRight);
+
+            // Add line indicator and label for right axis
+            rightAxis.append("line")
+                .attr("x1", 45)
+                .attr("x2", 45)
+                .attr("y1", 260)
+                .attr("y2", 320)
+                .attr("stroke", "black")
+                .attr("stroke-width", 2);
+
+            rightAxis.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 48)
+                .attr("x", -height / 2)
+                .attr("fill", "black")
+                .style("text-anchor", "middle")
+                .text("Word Response")
+                .style("font-size", "12px")
+
+            // Create line generators
+            const lineVerbal = d3.line()
+                .x(d => x(d.session))
+                .y(d => yLeft(d.verbalPrompting));
+
+            const lineWord = d3.line()
+                .x(d => x(d.session))
+                .y(d => yRight(d.wordResponse));
+
+            // Add vertical separator lines
+            const separatorSessions = [3.5, 7.5]; // Lines between sessions 3-4 and 7-8
+            separatorSessions.forEach(session => {
+                svg.append("line")
+                    .attr("x1", x(session))
+                    .attr("x2", x(session))
+                    .attr("y1", 0)
+                    .attr("y2", height)
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "5,5");
+            });
+
+            // Add phase labels
+            // Baseline section
+            svg.append("text")
+                .attr("x", x(2)) // Center of first section
+                .attr("y", -10)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .attr("font-size", "12px")
+                .text("Baseline")
+                .style("font-size", "14px")
+
+
+            // Middle section (Intervention + Verbal Prompting)
+            svg.append("text")
+                .attr("x", x(5.5)) // Center of second section
+                .attr("y", -20)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .text("Intervention")
+                .style("font-size", "14px")
+
+            svg.append("text")
+                .attr("x", x(5.5)) // Center of second section
+                .attr("y", -5)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .text("Verbal Prompting")
+                .style("font-size", "14px")
+
+
+            // Last section (Intervention + Verbal Prompting and Praise)
+            svg.append("text")
+                .attr("x", x(12)) // Center of last section
+                .attr("y", -20)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .text("Intervention")
+                .style("font-size", "14px")
+
+
+            svg.append("text")
+                .attr("x", x(12)) // Center of last section
+                .attr("y", -5)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .text("Verbal Prompting and Praise")
+                .style("font-size", "14px")
+
+
+            // Draw lines for each intervention group
+            groupedData.forEach((groupData, intervention) => {
+                // Verbal prompting line (grey)
+                svg.append("path")
+                    .datum(groupData)
+                    .attr("fill", "none")
+                    .attr("stroke", "#666")
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "5,5")
+                    .attr("d", lineVerbal);
+
+                // Word response line (black)
+                svg.append("path")
+                    .datum(groupData)
+                    .attr("fill", "none")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 2)
+                    .attr("d", lineWord);
+
+                // Add circles for verbal prompting data points
+                svg.selectAll(".verbal-point-" + intervention)
+                    .data(groupData)
+                    .join("circle")
+                    .attr("class", "verbal-point-" + intervention)
+                    .attr("cx", d => x(d.session))
+                    .attr("cy", d => yLeft(d.verbalPrompting))
+                    .attr("r", 4)
+                    .attr("fill", "#666");
+
+                // Add circles for word response data points
+                svg.selectAll(".word-point-" + intervention)
+                    .data(groupData)
+                    .join("circle")
+                    .attr("class", "word-point-" + intervention)
+                    .attr("cx", d => x(d.session))
+                    .attr("cy", d => yRight(d.wordResponse))
+                    .attr("r", 4)
+                    .attr("fill", "black");
+            });
+        }
+
+        // Start the application
+        init().catch(error => console.error('Initialization error:', error));
     </script>
 
 </body>
