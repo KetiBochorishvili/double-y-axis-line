@@ -137,7 +137,7 @@
                 .y(d => yRight(d.wordResponse));
 
             // Add vertical separator lines
-            const separatorSessions = [3.5, 7.5]; // Lines between sessions 3-4 and 7-8
+            const separatorSessions = [3.5, 7.5, 16.5]; // Lines between sessions 3-4, 7-8, and 16-17
             separatorSessions.forEach(session => {
                 svg.append("line")
                     .attr("x1", x(session))
@@ -150,7 +150,7 @@
             });
 
             // Add phase labels
-            // Baseline section
+            // Baseline section (first)
             svg.append("text")
                 .attr("x", x(2)) // Center of first section
                 .attr("y", -10)
@@ -197,6 +197,14 @@
                 .text("Verbal Prompting and Praise")
                 .style("font-size", "14px")
 
+            // Final Baseline section
+            svg.append("text")
+                .attr("x", x(18)) // Center of final section (around session 18)
+                .attr("y", -10)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .text("Baseline")
+                .style("font-size", "14px")
 
             // Draw lines for each intervention group
             groupedData.forEach((groupData, intervention) => {
